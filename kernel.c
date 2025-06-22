@@ -5,6 +5,10 @@
 #define VGA_DATA 0x3D5
 #define MAX_HISTORY 10
 #define MAX_CMD_LENGTH 32
+#define STATUS_BAR_ROW 24
+#define WHITE_ON_BLUE 0x1F
+#define WHITE_ON_RED 0x4F
+#define WHITE_ON_GREEN 0x2F
 
 // Global cursor position tracker
 static int current_cursor_pos = 0;
@@ -22,6 +26,12 @@ void __attribute__((section(".text"))) get_input(char *buffer);
 void __attribute__((section(".text"))) print_system_info();
 void __attribute__((section(".text"))) update_cursor(int x, int y);
 int __attribute__((section(".text"))) strcmp(const char *s1, const char *s2);
+void __attribute__((section(".text"))) strcpy(char *dest, const char *src);
+int __attribute__((section(".text"))) strlen(const char *str);
+void __attribute__((section(".text"))) clear_current_input(char *buffer, int *pos, int start_pos);
+void __attribute__((section(".text"))) load_history_command(char *buffer, int *pos, int start_pos);
+void __attribute__((section(".text"))) init_status_bar(unsigned char color);
+void __attribute__((section(".text"))) update_status_bar(const char *text, unsigned char color);
 
 // I/O port functions
 static inline unsigned char inb(unsigned short port)
@@ -113,6 +123,38 @@ int strlen(const char *str)
     return len;
 }
 
+// Clear and initialize the status bar
+void init_status_bar(unsigned char color)
+{
+    for (int i = 0; i < 80; i++)
+    {
+        vidmem[(STATUS_BAR_ROW * 80 + i) * 2] = ' ';
+        vidmem[(STATUS_BAR_ROW * 80 + i) * 2 + 1] = color;
+    }
+}
+
+// Update status bar text (centered)
+void update_status_bar(const char *text, unsigned char color)
+{
+    // Clear the status bar first with specified color
+    for (int i = 0; i < 80; i++)
+    {
+        vidmem[(STATUS_BAR_ROW * 80 + i) * 2] = ' ';
+        vidmem[(STATUS_BAR_ROW * 80 + i) * 2 + 1] = color;
+    }
+
+    // Center the text
+    int len = strlen(text);
+    int start_pos = (80 - len) / 2;
+
+    // Write the text with specified color
+    for (int i = 0; i < len && (start_pos + i) < 80; i++)
+    {
+        vidmem[(STATUS_BAR_ROW * 80 + start_pos + i) * 2] = text[i];
+        vidmem[(STATUS_BAR_ROW * 80 + start_pos + i) * 2 + 1] = color;
+    }
+}
+
 // Load command from history into input buffer
 void clear_current_input(char *buffer, int *pos, int start_pos)
 {
@@ -155,11 +197,31 @@ void clear_screen()
     current_cursor_pos = 0;
     update_cursor(0, 0);
     print_string("==> Welcome to DA-Os <==\n\n");
+
+    init_status_bar(WHITE_ON_BLUE);
+    update_status_bar("Ready", WHITE_ON_BLUE);
 }
 
 // Print a string to screen
 void print_string(const char *str)
 {
+    int max_row = (current_cursor_pos / 80);
+    if (max_row >= STATUS_BAR_ROW)
+    {
+        // Scroll up before printing
+        for (int i = 80 * 2; i < 80 * 24 * 2; i++)
+        {
+            vidmem[i - 80 * 2] = vidmem[i];
+        }
+        // Clear the new line (row 23)
+        for (int i = (80 * 23 * 2); i < 80 * 24 * 2; i += 2)
+        {
+            vidmem[i] = ' ';
+            vidmem[i + 1] = WHITE_ON_BLACK;
+        }
+        current_cursor_pos = 80 * 23;
+    }
+
     while (*str)
     {
         if (*str == '\n')
@@ -303,9 +365,8 @@ void print_system_info()
 void kernel_main()
 {
     clear_screen();
-    print_string("Type 'info' for system information\n");
-    print_string("Type 'clear' to clear the screen\n");
-    print_string("Type 'help' for available commands\n\n");
+    init_status_bar(WHITE_ON_BLUE);
+    update_status_bar("DA-OS v0.1 | Commands: info, clear, help", WHITE_ON_BLUE);
 
     char input[32];
     while (1)
@@ -313,13 +374,16 @@ void kernel_main()
         print_string("DA-Os> ");
         get_input(input);
 
+        // Update status bar based on command
         if (strcmp(input, "info") == 0)
         {
             print_system_info();
+            update_status_bar("System information displayed", WHITE_ON_GREEN);
         }
         else if (strcmp(input, "clear") == 0)
         {
             clear_screen();
+            update_status_bar("Screen cleared", WHITE_ON_GREEN);
         }
         else if (strcmp(input, "help") == 0)
         {
@@ -327,10 +391,12 @@ void kernel_main()
             print_string("  info  - Show system information\n");
             print_string("  clear - Clear the screen\n");
             print_string("  help  - Show this help\n");
+            update_status_bar("Help displayed", WHITE_ON_GREEN);
         }
         else
         {
             print_string("Unknown command. Type 'help' for help.\n");
+            update_status_bar("Unknown command", WHITE_ON_RED);
         }
     }
 }
