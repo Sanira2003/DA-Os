@@ -1,11 +1,18 @@
+// This is a simple 16-bit kernel for DA-Os, a text-based operating system.
 #define VIDEO_MEMORY 0xB8000
 #define WHITE_ON_BLACK 0x0F
 #define VGA_CTRL 0x3D4
 #define VGA_DATA 0x3D5
+#define MAX_HISTORY 10
+#define MAX_CMD_LENGTH 32
 
 // Global cursor position tracker
 static int current_cursor_pos = 0;
 static volatile char *vidmem = (volatile char *)VIDEO_MEMORY;
+
+static char history[MAX_HISTORY][MAX_CMD_LENGTH];
+static int history_count = 0;
+static int history_current = -1;
 
 // Function declarations
 void __attribute__((section(".text"))) kernel_main();
@@ -56,18 +63,18 @@ static const unsigned char keyboard_map[128] = {
     0,                            /* Num Lock */
     0,                            /* Scroll Lock */
     0,                            /* Home */
-    0,                            /* Up Arrow */
+    0x48,                         /* Up Arrow */
     0,                            /* Page Up */
     '-',
     0, /* Left Arrow */
     0,
     0, /* Right Arrow */
     '+',
-    0, /* End */
-    0, /* Down Arrow */
-    0, /* Page Down */
-    0, /* Insert */
-    0, /* Delete */
+    0,    /* End */
+    0x50, /* Down Arrow */
+    0,    /* Page Down */
+    0,    /* Insert */
+    0,    /* Delete */
     0, 0, 0,
     0, /* F11 */
     0, /* F12 */
@@ -83,6 +90,58 @@ int strcmp(const char *s1, const char *s2)
         s2++;
     }
     return *(const unsigned char *)s1 - *(const unsigned char *)s2;
+}
+
+// Simple string copy
+void strcpy(char *dest, const char *src)
+{
+    while (*src)
+    {
+        *dest++ = *src++;
+    }
+    *dest = '\0';
+}
+
+// Simple string length
+int strlen(const char *str)
+{
+    int len = 0;
+    while (*str++)
+    {
+        len++;
+    }
+    return len;
+}
+
+// Load command from history into input buffer
+void clear_current_input(char *buffer, int *pos, int start_pos)
+{
+    // Clear the current line
+    for (int i = 0; i < *pos; i++)
+    {
+        current_cursor_pos--;
+        vidmem[current_cursor_pos * 2] = ' ';
+    }
+    *pos = 0;
+    update_cursor(start_pos % 80, start_pos / 80);
+}
+
+void load_history_command(char *buffer, int *pos, int start_pos)
+{
+    clear_current_input(buffer, pos, start_pos);
+
+    // Copy history command to buffer and display it
+    strcpy(buffer, history[history_count - 1 - history_current]);
+    *pos = strlen(buffer);
+
+    // Print the command
+    for (int i = 0; i < *pos; i++)
+    {
+        vidmem[current_cursor_pos * 2] = buffer[i];
+        vidmem[current_cursor_pos * 2 + 1] = WHITE_ON_BLACK;
+        current_cursor_pos++;
+    }
+    update_cursor(current_cursor_pos % 80, current_cursor_pos / 80);
 }
 
 // Clear the screen
@@ -139,6 +198,7 @@ void get_input(char *buffer)
 {
     int pos = 0;
     int input_start_pos = current_cursor_pos;
+    history_current = -1; // Reset history browsing when starting new input
 
     while (1)
     {
@@ -152,6 +212,23 @@ void get_input(char *buffer)
         { // Enter
             buffer[pos] = 0;
             print_string("\n");
+
+            // Add to history if not empty
+            if (pos > 0)
+            {
+                // Shift history down if full
+                if (history_count == MAX_HISTORY)
+                {
+                    for (int i = 0; i < MAX_HISTORY - 1; i++)
+                    {
+                        strcpy(history[i], history[i + 1]);
+                    }
+                    history_count--;
+                }
+
+                strcpy(history[history_count], buffer);
+                history_count++;
+            }
             return;
         }
         else if (key == 0x0E)
@@ -164,16 +241,48 @@ void get_input(char *buffer)
                 update_cursor(current_cursor_pos % 80, current_cursor_pos / 80);
             }
         }
+        else if (key == 0x48)
+        { // Up arrow - history previous
+            if (history_count > 0 && (history_current < history_count - 1))
+            {
+                history_current++;
+                load_history_command(buffer, &pos, input_start_pos);
+            }
+        }
+        else if (key == 0x50)
+        { // Down arrow - history next
+            if (history_current > 0)
+            {
+                history_current--;
+                load_history_command(buffer, &pos, input_start_pos);
+            }
+            else if (history_current == 0)
+            {
+                history_current = -1;
+                // Clear current input
+                clear_current_input(buffer, &pos, input_start_pos);
+            }
+        }
         else if (key < 0x80)
         { // Regular key
+            if (history_current != -1)
+            {
+                // If we were browsing history but now typing, reset
+                clear_current_input(buffer, &pos, input_start_pos);
+                history_current = -1;
+            }
+
             char c = keyboard_map[key];
             if (c >= 32 && c <= 126)
             {
-                buffer[pos++] = c;
-                vidmem[current_cursor_pos * 2] = c;
-                vidmem[current_cursor_pos * 2 + 1] = WHITE_ON_BLACK;
-                current_cursor_pos++;
-                update_cursor(current_cursor_pos % 80, current_cursor_pos / 80);
+                if (pos < MAX_CMD_LENGTH - 1)
+                {
+                    buffer[pos++] = c;
+                    vidmem[current_cursor_pos * 2] = c;
+                    vidmem[current_cursor_pos * 2 + 1] = WHITE_ON_BLACK;
+                    current_cursor_pos++;
+                    update_cursor(current_cursor_pos % 80, current_cursor_pos / 80);
+                }
             }
         }
     }
@@ -183,11 +292,11 @@ void get_input(char *buffer)
 void print_system_info()
 {
     print_string("\n** System Information **\n");
-    print_string("Os: DA-Os v0.1\n");
-    print_string("Mode: 16-bit Real Mode\n");
-    print_string("Display: 80x25 Text Mode\n");
-    print_string("Video Memory: 0xB8000\n");
-    print_string("Boot Device: Floppy Disk\n\n");
+    print_string("Os: DA-Os v0.1 by Sanira Deneth Adesha.\n");
+    print_string("Mode: 16-bit Real Mode.\n");
+    print_string("Display: 80x25 Text Mode.\n");
+    print_string("Video Memory: 0xB8000.\n");
+    print_string("Boot Device: Floppy Disk.\n\n");
 }
 
 // Kernel entry point
