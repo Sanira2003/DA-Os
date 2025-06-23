@@ -205,25 +205,24 @@ void clear_screen()
 // Print a string to screen
 void print_string(const char *str)
 {
-    int max_row = (current_cursor_pos / 80);
-    if (max_row >= STATUS_BAR_ROW)
-    {
-        // Scroll up before printing
-        for (int i = 80 * 2; i < 80 * 24 * 2; i++)
-        {
-            vidmem[i - 80 * 2] = vidmem[i];
-        }
-        // Clear the new line (row 23)
-        for (int i = (80 * 23 * 2); i < 80 * 24 * 2; i += 2)
-        {
-            vidmem[i] = ' ';
-            vidmem[i + 1] = WHITE_ON_BLACK;
-        }
-        current_cursor_pos = 80 * 23;
-    }
-
     while (*str)
     {
+        if (current_cursor_pos >= 80 * (STATUS_BAR_ROW - 1))
+        {
+            // Scroll everything above status bar up one line
+            for (int i = 80 * 2; i < 80 * (STATUS_BAR_ROW - 1) * 2; i++)
+            {
+                vidmem[i - 80 * 2] = vidmem[i];
+            }
+            // Clear the new line (just above status bar)
+            for (int i = 80 * (STATUS_BAR_ROW - 2) * 2; i < 80 * (STATUS_BAR_ROW - 1) * 2; i += 2)
+            {
+                vidmem[i] = ' ';
+                vidmem[i + 1] = WHITE_ON_BLACK;
+            }
+            current_cursor_pos = 80 * (STATUS_BAR_ROW - 2);
+        }
+
         if (*str == '\n')
         {
             current_cursor_pos += (80 - (current_cursor_pos % 80));
@@ -235,22 +234,6 @@ void print_string(const char *str)
             current_cursor_pos++;
         }
         str++;
-
-        if (current_cursor_pos >= 80 * 25)
-        {
-            // Scroll screen up
-            for (int i = 80 * 2; i < 80 * 25 * 2; i++)
-            {
-                vidmem[i - 80 * 2] = vidmem[i];
-            }
-            // Clear new line
-            for (int i = (80 * 24 * 2); i < 80 * 25 * 2; i += 2)
-            {
-                vidmem[i] = ' ';
-                vidmem[i + 1] = WHITE_ON_BLACK;
-            }
-            current_cursor_pos = 80 * 24;
-        }
     }
     update_cursor(current_cursor_pos % 80, current_cursor_pos / 80);
 }
@@ -361,20 +344,29 @@ void print_system_info()
     print_string("Boot Device: Floppy Disk.\n\n");
 }
 
+void print_banner()
+{
+    print_string(" ____    _     ___    ____   \n");
+    print_string(" |  _ \\  / \\  / _ \\  / ___| \n");
+    print_string(" | | | |/ _ \\| | | | \\___ \\   \n");
+    print_string(" | |_| / ___ \\ |_| |  ___) | \n");
+    print_string(" |____/_/   \\_\\___/  |____/ \n\n");
+}
+
 // Kernel entry point
 void kernel_main()
 {
     clear_screen();
+    print_banner();
     init_status_bar(WHITE_ON_BLUE);
-    update_status_bar("DA-OS v0.1 | Commands: info, clear, help", WHITE_ON_BLUE);
-
+    update_status_bar("DA-OS v0.1 | Type 'help' for available commands", WHITE_ON_BLUE);
     char input[32];
+
     while (1)
     {
         print_string("DA-Os> ");
         get_input(input);
 
-        // Update status bar based on command
         if (strcmp(input, "info") == 0)
         {
             print_system_info();
@@ -395,8 +387,8 @@ void kernel_main()
         }
         else
         {
-            print_string("Unknown command. Type 'help' for help.\n");
-            update_status_bar("Unknown command", WHITE_ON_RED);
+            print_string("Unknown command.\n");
+            update_status_bar("Unknown command | Type 'help' for help.", WHITE_ON_RED);
         }
     }
 }
