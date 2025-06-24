@@ -196,7 +196,6 @@ void clear_screen()
     }
     current_cursor_pos = 0;
     update_cursor(0, 0);
-    print_string("==> Welcome to DA-Os <==\n\n");
 
     init_status_bar(WHITE_ON_BLUE);
     update_status_bar("Ready", WHITE_ON_BLUE);
@@ -358,13 +357,14 @@ void kernel_main()
 {
     clear_screen();
     print_banner();
+    print_string("*** Welcome to DA-Os ***\n\n");
     init_status_bar(WHITE_ON_BLUE);
     update_status_bar("DA-OS v0.1 | Type 'help' for available commands", WHITE_ON_BLUE);
     char input[32];
 
     while (1)
     {
-        print_string("DA-Os> ");
+        print_string("DA-Os>> ");
         get_input(input);
 
         if (strcmp(input, "info") == 0)
@@ -375,7 +375,12 @@ void kernel_main()
         else if (strcmp(input, "clear") == 0)
         {
             clear_screen();
+            print_banner();
             update_status_bar("Screen cleared", WHITE_ON_GREEN);
+            for (int i = 0; i < 1000000; i++)
+            {
+            }
+            update_status_bar("DA-OS v0.1 | Type 'help' for available commands", WHITE_ON_BLUE);
         }
         else if (strcmp(input, "help") == 0)
         {
