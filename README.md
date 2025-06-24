@@ -1,109 +1,111 @@
-# DA-Os - A Simple 16-bit Operating System
+<h1 align="center">🧠 DA-Os</h1>
+<h3 align="center">A Minimalist 16-bit Operating System Built from Scratch</h3>
 
-DA-Os is a minimalist, text-based, 16-bit operating system built from scratch for x86 architecture. It's an educational project designed to explore the fundamentals of OS development, from bootloading to kernel interaction. It operates entirely in real mode.
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-x86-blue?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Mode-Real%20Mode-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Built%20With-C%20%26%20Assembly-red?style=for-the-badge" />
+</p>
 
-## Screenshots
+---
 
-This section is ready for you to add your own screenshots of DA-Os in action.
+### 🚀 Project Overview
 
-- **Boot Screen & Welcome Banner:**
+> **DA-Os** is a simple, text-based, 16-bit operating system built for x86 architecture in **real mode**. It’s an educational project developed from scratch to understand the core principles of OS development — from bootloading to building a basic shell.
 
-  ![welcome](Screenshots/welcome.png)
+---
 
-- **'help' Command Usage:**
+### 🖼️ Screenshots
 
-  ![help](Screenshots/help.png)
+<p align="center">
+  <img src="Screenshots/welcome.png" width="45%" alt="Boot Screen & Welcome Banner"/><br>
+  <img src="Screenshots/help.png" width="45%" alt="Help Command"/>
+  <img src="Screenshots/info.png" width="45%" alt="Info Command"/>
+</p>
 
-- **'info' Command Usage:**
+---
 
-  ![info](Screenshots/info.png)
+### 🔧 Core Features
 
-## Core Features
+- 🧬 **Custom 16-bit Bootloader** (`boot.asm`)
+- 🧠 **C-based Kernel Logic** (`kernel.c`)
+- 💬 **Command-Line Interface (CLI)**
+- ⚙️ **Built-in Commands**: `help`, `info`, `clear`
+- 🖥️ **Direct VGA Text Mode Manipulation**
+- 🔁 **Automatic Screen Scrolling**
+- ⌨️ **Keyboard Input with Scancode Handling**
 
-- **16-bit Bootloader:** A custom assembly bootloader (`boot.asm`) that loads the kernel from a floppy disk into memory.
-- **C-based Kernel:** The kernel (`kernel.c`) is written in C, handling all high-level logic.
-- **Interactive Shell:** A simple command-line interface (CLI) that accepts user input and executes commands.
-- **Built-in Commands:**
-  - `help`: Displays a list of all available commands.
-  - `info`: Shows technical details about the OS.
-  - `clear`: Clears the terminal screen.
-- **Direct Hardware Access:** Manages the screen by writing directly to VGA text mode memory, controls the cursor, and reads raw scancodes from the keyboard.
-- **Screen Scrolling:** Automatically scrolls the content up when the screen is full.
+---
 
-## Special Features
+### 🌟 Special Features
 
-DA-Os includes some advanced features that enhance the user experience.
+#### 🧭 Dynamic Status Bar
+- **Color-Coded Feedback**:
+  - 🔵 Blue: Idle state
+  - ✅ Green: Command successful
+  - ❌ Red: Invalid command
+- **Contextual Messages** like “Help displayed” or “Unknown command”
 
-### Dynamic Status Bar
+#### 🔂 Command History
+- ⬆️⬇️ Use **Arrow Keys** to navigate through your last 10 commands
+- 🔁 **Re-execute** previous commands with a single press
 
-At the bottom of the screen, a status bar provides real-time feedback on operations.
+---
 
-- **Color-Coded Feedback:** The bar changes color to signify the outcome of a command:
-  - **Blue (Default):** Idle and ready for a command.
-  - **Green:** The command was executed successfully.
-  - **Red:** An unknown or invalid command was entered.
-- **Informative Messages:** Displays messages like "Help displayed", "Screen cleared", or "Unknown command".
+### 🏗️ Architecture
 
-### Command History
+#### 🔹 Bootloader (`boot.asm`)
+- Loaded at `0x7C00` by BIOS
+- Loads 10 sectors into `0x7E00` using interrupt `0x13`
+- Sets up the stack, segment registers, and jumps to the kernel
 
-The shell keeps a history of your most recent commands to improve efficiency.
+#### 🔹 Kernel (`kernel.c`)
+- Starts at `kernel_main`
+- Displays the welcome banner and enters an input loop
+- Handles command parsing, screen output, and status bar updates
 
-- **Navigate History:** Use the **Up Arrow** and **Down Arrow** keys to cycle through the last 10 commands you've entered.
-- **Easy Re-execution:** Simply find the command you want to run again and press Enter.
+---
 
-## Architecture
+### 📁 Project Structure
 
-The OS follows a simple, two-stage architecture.
-
-### 1. Bootloader (`boot.asm`)
-
-The boot process begins with `boot.asm`. The BIOS loads this 512-byte sector from the floppy disk into memory at `0x7C00`. Its responsibilities are:
-
-1.  **Setup Environment:** It initializes the segment registers (`ds`, `es`, `ss`) and sets up the stack.
-2.  **Load Kernel:** It uses BIOS interrupt `0x13` to read 10 sectors (the kernel) from the disk and place them in memory at address `0x7E00`.
-3.  **Transfer Control:** Once the kernel is loaded, the bootloader unconditionally jumps to `0x7E00`, effectively passing control to the C kernel.
-
-### 2. Kernel (`kernel.c`)
-
-The kernel is the heart of DA-Os. Its main components are:
-
-- **Entry Point (`kernel_main`):** This function initializes the screen, displays the welcome banner, and enters an infinite loop to handle user commands.
-- **Command Loop:** This loop repeatedly prints the `DA-Os> ` prompt, gets user input, executes the corresponding command, and updates the status bar with the result.
-
-## How to Build and Run
-
-The project is built using a `Makefile` which automates the compilation and linking process.
-
-### Prerequisites
-
-- **NASM:** An assembler for the x86 architecture.
-- **GCC Cross-Compiler:** A 32-bit GCC compiler for the i386 target (e.g., `i686-elf-gcc`).
-- **LD (Linker):** A linker to combine the object files.
-- **QEMU:** An emulator to run the operating system.
-
-### The Build Process
-
-1.  **`boot.asm` -> `boot.bin`**: The `Makefile` uses `nasm` to assemble the bootloader into a flat binary file.
-2.  **`kernel.c` -> `kernel.o`**: The C kernel is compiled into an object file.
-3.  **Linking (`link.ld`)**: The linker uses the `link.ld` script to combine the boot and kernel binaries, placing the kernel at the correct memory address (`0x7E00`).
-4.  **Final Image (`os.img`)**: The final binary is padded to create a 1.44MB floppy disk image.
-
-### Running the OS
-
-You can run the OS with a single command:
-
-```sh
-make run
-
-This command will execute all the build steps and then launch the OS image in the QEMU emulator:
-
-qemu-system-i386 -fda os.img
-
-File Structure
+```bash
 .
-├── boot.asm            # The 16-bit assembly bootloader
-├── kernel.c            # The main C kernel file
-├── link.ld             # Linker script to position the kernel
-├── Makefile            # Automation script for building and running
-└── README.md           # This file
+├── boot.asm        # Assembly bootloader
+├── kernel.c        # Main C kernel code
+├── link.ld         # Linker script
+├── Makefile        # Build automation
+├── Screenshots/    # Screenshots for README
+└── README.md       # This file
 ```
+---
+
+### ⚙️ How to Build and Run
+
+#### 🔹 🔧 Prerequisites
+- nasm
+- i686-elf-gcc
+- ld
+- QEMU
+
+#### 🔹 🛠️ Build Steps
+```bash
+make        # Builds the bootloader and kernel, creates os.img
+make run    # Launches DA-Os in QEMU
+```
+💡 All steps are automated via the Makefile.
+
+---
+
+### 🧑‍💻 Built By
+<h4 align="center">Hi 👋, I'm Sanira</h4> <p align="center">💻 A Full-Stack Developer 🇱🇰 Sri Lanka</p>
+💬 Always open to collaborations and tech discussions!
+
+---
+
+### 📬 Connect with Me
+<p align="left"> <a href="https://www.linkedin.com/in/sanira-deneth-615013320/" target="_blank"> <img src="https://img.shields.io/badge/LinkedIn-blue?style=flat&logo=linkedin" /> </a> <a href="mailto:sanira.adesha@gmail.com" target="_blank"> <img src="https://img.shields.io/badge/Gmail-red?style=flat&logo=gmail&logoColor=white" /> </a> </p>
+
+---
+
+<p align="center">⚡ _Learning how real systems work from the ground up!_</p> 
+
